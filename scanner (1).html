@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Equipment QR Scanner — Animated & Robust</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Poppins:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+  :root{--bg:#f8fbff;--card:#ffffff;--muted:#374151;--accent1:#0ea5a4;--accent2:#06b6d4;--glass:rgba(2,6,23,0.03);--success:#059669;--danger:#ef4444}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,Poppins,system-ui;background:linear-gradient(180deg,#fbfdff 0%, #eef6ff 100%);color:#04263a;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:28px auto;padding:20px;border-radius:16px;position:relative;overflow:visible}
+  .header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .badge{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-family:Poppins;font-size:18px;box-shadow:0 10px 30px rgba(2,6,23,0.06)}
+  h1{font-size:22px;margin:0}
+  .lead{color:var(--muted);font-size:13px;margin-top:4px}
+  .grid{display:flex;gap:18px;margin-top:16px}
+  .left{flex:1}
+  .right{width:360px}
+  .card{background:var(--card);border-radius:12px;padding:14px;border:1px solid rgba(2,6,23,0.06);box-shadow:0 12px 40px rgba(2,6,23,0.04);position:relative;overflow:visible}
+  video{width:100%;height:320px;border-radius:10px;background:#f3f9ff;border:1px solid rgba(2,6,23,0.04);object-fit:cover}
+  .scanOverlay{position:relative;margin-top:8px;height:320px}
+  .scanBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:70%;max-width:560px;height:55%;max-height:360px;border-radius:12px;border:2px dashed rgba(6,182,212,0.18);display:flex;align-items:center;justify-content:center;pointer-events:none;box-shadow:0 8px 30px rgba(6,182,212,0.04);backdrop-filter: blur(2px);}
+  .scanLine{position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,rgba(10,132,132,0.95),transparent);animation:scan 1400ms linear infinite;opacity:0.9}
+  @keyframes scan{0%{transform:translateY(-10%)}50%{transform:translateY(110%)}100%{transform:translateY(-10%)}}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .btn{background:linear-gradient(90deg,var(--accent1),var(--accent2));border:none;color:white;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 12px 36px rgba(2,6,23,0.06)}
+  .btn.secondary{background:transparent;border:1px solid rgba(2,6,23,0.06);color:var(--muted);font-weight:600}
+  input[type="password"], textarea{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(2,6,23,0.06);background:var(--glass);font-size:14px}
+  .output{margin-top:12px;background:#fff;padding:12px;border-radius:10px;min-height:140px;border:1px solid rgba(2,6,23,0.04);font-family:Inter,system-ui}
+  table{width:100%;border-collapse:collapse}
+  td{padding:8px;border-bottom:1px solid rgba(2,6,23,0.04)}
+  .labelCell{width:42%;font-weight:700;color:#0b1220}
+  .muted{color:var(--muted);font-size:13px}
+  .small{font-size:13px;color:var(--muted);margin-top:8px}
+  .success{color:var(--success);font-weight:700}
+  .danger{color:var(--danger);font-weight:700}
+
+  /* Confetti pieces */
+  .confetti-piece{position:fixed;z-index:2000;pointer-events:none;will-change:transform,opacity;opacity:0.95}
+  @keyframes confettiFall{0%{transform:translateY(-10vh) rotate(0) scale(1)}100%{transform:translateY(110vh) rotate(720deg) scale(0.8);opacity:0}} 
+
+  /* success overlay */
+  .success-badge{position:absolute;right:14px;top:14px;background:linear-gradient(90deg,#10b981,#06b6d4);color:white;padding:8px 10px;border-radius:10px;font-weight:700;box-shadow:0 10px 30px rgba(2,6,23,0.08);transform-origin:center;opacity:0;transition:transform .35s,opacity .35s}
+  .success-badge.show{opacity:1;transform:scale(1.02);}
+
+  @media (max-width:880px){.grid{flex-direction:column}.right{width:100%}video{height:240px}.scanBox{width:92%}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="badge">EQ</div>
+      <div>
+        <h1>Equipment QR Scanner</h1>
+        <div class="lead">Scan a generated QR (encrypted). Enter passphrase to decrypt and view equipment details.</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="left card" id="cameraCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div class="muted">Camera / Image</div>
+          <div id="status" class="muted">ready</div>
+        </div>
+
+        <div style="margin-top:10px">
+          <video id="video" autoplay muted playsinline></video>
+          <div class="scanOverlay">
+            <div class="scanBox" id="scanBox">
+              <div class="muted">Place QR inside this box</div>
+              <div class="scanLine" id="scanLine"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="startBtn" class="btn">Start Camera</button>
+          <button id="stopBtn" class="btn secondary" disabled>Stop</button>
+          <button id="uploadBtn" class="btn secondary">Upload Image</button>
+          <input id="fileInput" type="file" accept="image/*" style="display:none" />
+        </div>
+
+        <div class="small" id="cameraHelp">Tip: Camera requires HTTPS or localhost. If permission denied, try allowing camera from browser URL bar or use Upload Image.</div>
+        <div class="success-badge" id="successBadge">Decryption OK 🎉</div>
+      </div>
+
+      <div class="right card">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pass" type="password" placeholder="Enter passphrase" aria-label="Passphrase" />
+          <button id="decryptBtn" class="btn">Decrypt</button>
+        </div>
+
+        <div class="small" style="margin-top:10px">Detected encrypted payload (auto-fill after successful scan)</div>
+        <textarea id="payload" rows="4" style="margin-top:8px" placeholder="Encrypted payload will appear here (or paste it)"></textarea>
+
+        <div class="output" id="output" aria-live="polite">
+          <div class="muted">Decrypted equipment details will appear here after successful decrypt.</div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button id="copyBtn" class="btn secondary">Copy Decrypted</button>
+          <button id="clearBtn" class="btn secondary">Clear</button>
+          <button id="downloadCsv" class="btn secondary">Download CSV</button>
+        </div>
+
+        <div class="small" style="margin-top:8px">Security: The QR stores only ciphertext (salt, iv, ct). Keep passphrase secret.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// crypto helpers (must match generator)
+function str2ab(str){ return new TextEncoder().encode(str); }
+function ab2str(buf){ return new TextDecoder().decode(buf); }
+function ab2b64(buf){ const bytes=new Uint8Array(buf); let s=''; const CH=0x8000; for(let i=0;i<bytes.length;i+=CH) s+=String.fromCharCode.apply(null, bytes.subarray(i,i+CH)); return btoa(s); }
+function b642ab(b64){ const bin=atob(b64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8.buffer; }
+
+async function deriveKey(pass, salt){
+  const base = await crypto.subtle.importKey('raw', str2ab(pass), {name:'PBKDF2'}, false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt: salt, iterations:150000, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+}
+
+async function decryptPayload(payloadObj, pass){
+  if(!payloadObj || !payloadObj.salt || !payloadObj.iv || !payloadObj.ct) throw new Error('Invalid payload');
+  const saltBuf = b642ab(payloadObj.salt);
+  const iv = new Uint8Array(b642ab(payloadObj.iv));
+  const ctBuf = b642ab(payloadObj.ct);
+  const key = await deriveKey(pass, saltBuf);
+  const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv: iv }, key, ctBuf);
+  return ab2str(plain);
+}
+
+/* --- scanning & camera handling --- */
+const video = document.getElementById('video');
+const payloadEl = document.getElementById('payload');
+const passEl = document.getElementById('pass');
+const outputEl = document.getElementById('output');
+const statusEl = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const uploadBtn = document.getElementById('uploadBtn');
+const fileInput = document.getElementById('fileInput');
+const decryptBtn = document.getElementById('decryptBtn');
+const copyBtn = document.getElementById('copyBtn');
+const clearBtn = document.getElementById('clearBtn');
+const downloadCsv = document.getElementById('downloadCsv');
+const successBadge = document.getElementById('successBadge');
+const cameraHelp = document.getElementById('cameraHelp');
+
+let stream = null;
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d');
+let raf = null;
+let scanning = false;
+
+function setStatus(t, color){ statusEl.textContent = t; if(color) statusEl.style.color = color; else statusEl.style.color = ''; }
+
+function isSecure(){ return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1'; }
+
+async function startCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ alert('Camera not supported'); return; }
+  if(!isSecure()){ alert('Camera requires HTTPS or localhost.'); return; }
+  try{
+    // prefer environment facing camera, but allow fallbacks
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    scanning = true;
+    startBtn.disabled = true; stopBtn.disabled = false;
+    setStatus('scanning…', '#0b74a6');
+    cameraHelp.textContent = 'Camera active — move QR inside the box.';
+    scanLoop();
+  }catch(err){
+    console.error('getUserMedia error:', err);
+    if(err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')){
+      alert('Camera permission denied. Allow camera access in your browser and try again, or use Upload Image.');
+      cameraHelp.textContent = 'Camera permission denied — use Upload Image or enable camera in site settings.';
+    } else {
+      alert('Could not start camera: ' + (err.message || err.name));
+      cameraHelp.textContent = 'Camera error: ' + (err.message || err.name);
+    }
+    setStatus('camera error', '#ef4444');
+  }
+}
+
+function stopCamera(){
+  scanning = false;
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  try{ video.srcObject = null; }catch(e){}
+  startBtn.disabled = false; stopBtn.disabled = true;
+  setStatus('stopped', '#ef4444');
+  cameraHelp.textContent = 'Camera stopped. You can restart or upload an image.';
+  if(raf) cancelAnimationFrame(raf);
+}
+
+function scanLoop(){
+  if(!scanning) return;
+  const w = video.videoWidth || video.clientWidth;
+  const h = video.videoHeight || video.clientHeight;
+  if(w && h){
+    canvas.width = w; canvas.height = h;
+    try{
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0,0,w,h);
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" });
+      if(code){
+        payloadEl.value = code.data;
+        setStatus('QR detected', '#059669');
+        stopCamera();
+        // small visual feedback
+        flashSuccess();
+        return;
+      }
+    }catch(e){
+      console.error(e);
+    }
+  }
+  raf = requestAnimationFrame(scanLoop);
+}
+
+// upload image
+uploadBtn.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const img = await createImageBitmap(f);
+    canvas.width = img.width; canvas.height = img.height;
+    ctx.drawImage(img,0,0);
+    const id = ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code = jsQR(id.data, id.width, id.height, { inversionAttempts: "attemptBoth" });
+    if(code){
+      payloadEl.value = code.data;
+      setStatus('QR found in image', '#059669');
+      flashSuccess();
+    } else {
+      alert('No QR detected in the uploaded image');
+      setStatus('no QR', '#ef4444');
+    }
+  }catch(err){
+    console.error(err); alert('Image processing failed'); setStatus('image error', '#ef4444');
+  }
+});
+
+// decrypt
+decryptBtn.addEventListener('click', async ()=>{
+  const txt = payloadEl.value.trim();
+  if(!txt){ alert('No payload present. Scan or paste the encrypted payload.'); return; }
+  let obj;
+  try{ obj = JSON.parse(txt); }catch(e){ alert('Payload is not valid JSON (make sure it was generated by the generator).'); return; }
+  const pass = passEl.value;
+  if(!pass){ alert('Enter passphrase'); return; }
+  setStatus('decrypting…', '#0b74a6');
+  try{
+    const plain = await decryptPayload(obj, pass);
+    let parsed = null;
+    try{ parsed = JSON.parse(plain); }catch(e){ /* not JSON */ }
+    if(parsed){
+      renderTable(parsed);
+      setStatus('decryption successful', '#059669');
+      flashSuccess(true);
+    } else {
+      outputEl.textContent = plain;
+      setStatus('decryption successful', '#059669');
+      flashSuccess(true);
+    }
+  }catch(err){
+    console.error(err);
+    alert('Decryption failed — wrong passphrase or corrupted data.');
+    setStatus('decryption failed', '#ef4444');
+  }
+});
+
+function renderTable(data){
+  const fields = ['equipment_name','tag_no','location','material_of_construction','capacity','working_pressure','working_temperature','manufacturer','purchase_date','last_maintenance','next_maintenance','notes'];
+  let html = '<table>';
+  fields.forEach(f=>{
+    const label = prettify(f);
+    const v = data[f] || '';
+    html += `<tr><td class="labelCell">${label}</td><td>${escapeHtml(v)}</td></tr>`;
+  });
+  html += '</table>';
+  outputEl.innerHTML = html;
+}
+
+// visual success: confetti from top + badge + optional vibration & beep
+function flashSuccess(playConfetti = false){
+  // show success badge briefly
+  successBadge.classList.add('show');
+  setTimeout(()=> successBadge.classList.remove('show'), 1600);
+  // small beep
+  try{ const o = new AudioContext(); const t = o.createOscillator(); const g = o.createGain(); t.connect(g); g.connect(o.destination); t.type='sine'; t.frequency.value=880; g.gain.value=0.01; t.start(); setTimeout(()=>{ t.stop(); o.close(); }, 120); }catch(e){}
+  // vibrate if available
+  if(navigator.vibrate) navigator.vibrate([60,30,60]);
+  if(playConfetti) burstConfetti();
+}
+
+// confetti burst from top center
+function burstConfetti(){
+  const count = 40;
+  const colors = ['#0ea5a4','#06b6d4','#f59e0b','#fb7185','#34d399','#7c3aed','#f97316','#ef4444'];
+  const rootRect = document.body.getBoundingClientRect();
+  const cx = rootRect.left + rootRect.width/2;
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = (cx + (Math.random()*160 - 80)) + 'px';
+    el.style.top = '-20px';
+    el.style.width = (6 + Math.random()*10) + 'px';
+    el.style.height = (8 + Math.random()*16) + 'px';
+    el.style.background = colors[Math.floor(Math.random()*colors.length)];
+    el.style.borderRadius = (Math.random()*4)+'px';
+    el.style.transform = `translateY(-10vh) rotate(${Math.random()*360}deg)`;
+    el.style.opacity = '1';
+    el.style.transition = 'transform 1200ms cubic-bezier(.2,.9,.2,1), opacity 1200ms linear';
+    document.body.appendChild(el);
+    // animate using requestAnimationFrame for better timing
+    requestAnimationFrame(()=>{
+      const tx = (Math.random()*280 - 140);
+      const ty = (window.innerHeight + 200 + Math.random()*200);
+      const rot = 360 + Math.random()*720;
+      el.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg)`;
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ document.body.removeChild(el); }catch(e){} }, 1500 + Math.random()*400);
+  }
+}
+
+// utility
+function prettify(k){ return k.split('_').map(s=> s[0].toUpperCase()+s.slice(1)).join(' ').replace('Of ','of '); }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// copy & clear & download CSV
+copyBtn.addEventListener('click', async ()=>{
+  const txt = outputEl.textContent.trim();
+  if(!txt){ alert('Nothing to copy'); return; }
+  try{ await navigator.clipboard.writeText(txt); alert('Copied to clipboard'); }catch(e){ alert('Copy failed'); }
+});
+clearBtn.addEventListener('click', ()=>{
+  payloadEl.value = ''; passEl.value = ''; outputEl.innerHTML = '<div class="muted">Decrypted equipment details will appear here after successful decrypt.</div>'; setStatus('ready'); successBadge.classList.remove('show');
+});
+downloadCsv.addEventListener('click', ()=>{
+  const rows = Array.from(outputEl.querySelectorAll('tr')).map(tr=> {
+    const cols = Array.from(tr.querySelectorAll('td')).map(td=> `"${td.textContent.replace(/"/g,'""')}"`);
+    return cols.join(',');
+  });
+  if(rows.length===0){ alert('No decrypted data to download'); return; }
+  const csv = rows.join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'equipment-details.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+});
+
+// start/stop button handlers
+startBtn.addEventListener('click', startCamera);
+stopBtn.addEventListener('click', stopCamera);
+
+// cleanup on unload
+window.addEventListener('beforeunload', ()=>{ if(stream) stream.getTracks().forEach(t=>t.stop()); });
+
+</script>
+</body>
+</html>
