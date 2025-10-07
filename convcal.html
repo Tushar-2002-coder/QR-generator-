@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Calculation Concentration Calculator</title>
+
+  <!-- Force Desktop View -->
+  <meta name="viewport" content="width=1024">
+
+  <!-- jsPDF + AutoTable (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    :root{
+      --bg1: #ffffff;
+      --bg2: #E8F0FF;
+      --teal: #00796b;
+      --muted: #333;
+      --card: #ffffff;
+    }
+
+    /* Dark mode vars */
+    .dark {
+      --bg1: #0b1220;
+      --bg2: #131a24;
+      --teal: #2ec4b6;
+      --muted: #ddd;
+      --card: #0f1720;
+    }
+
+    html,body{height:100%;}
+    body {
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0;
+      min-width: 1024px; /* force desktop layout */
+      background: linear-gradient(180deg,var(--bg1),var(--bg2));
+      padding: 18px;
+      color: var(--muted);
+      -webkit-font-smoothing:antialiased;
+    }
+
+    .container{
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:16px;
+    }
+
+    .brand { display:flex; gap:12px; align-items:center; }
+    .logo { width:56px; height:56px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 18px rgba(0,0,0,0.08); overflow:hidden; }
+    .logo img{width:100%;height:100%;object-fit:cover;display:block;}
+    .title { font-size:20px; font-weight:700; color:var(--teal); }
+    .subtitle { font-size:12px; color:var(--muted); }
+
+    .top-right { display:flex; gap:10px; align-items:center; }
+
+    .clock { font-weight:600; font-size:14px; color:var(--muted); }
+    .indicator { display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); }
+    .dot { width:10px; height:10px; border-radius:50%; background:#0f0; box-shadow:0 0 6px rgba(0,255,0,0.18); }
+    .dot.off { background:#c33; box-shadow:0 0 6px rgba(255,0,0,0.18); }
+
+    button, .small-btn {
+      background:var(--teal); color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600;
+    }
+    .small-btn { padding:6px 8px; font-size:13px; }
+
+    .card { background: var(--card); padding:18px; border-radius:12px; box-shadow: 0 8px 30px rgba(2,6,23,0.06); margin-bottom:16px; }
+
+    .grid { display:flex; flex-direction: column; gap:16px; }
+
+    label { display:block; font-weight:600; margin-bottom:6px; color:var(--muted); }
+    select, input[type="number"], input[type="text"]{
+      width:100%; padding:10px; border-radius:8px; border: 1px solid #ddd; box-sizing:border-box; font-size:14px; background:transparent; color:var(--muted);
+    }
+
+    .row{display:flex; gap:8px; margin-bottom:8px;}
+    .col{flex:1;}
+
+    .calc-btn { margin-top:10px; padding:12px; width:100%; border-radius:10px; font-size:16px; background:var(--teal); color:white; border:none; cursor:pointer; }
+
+    #result { margin-top:12px; padding:12px; background: linear-gradient(90deg, rgba(0,121,107,0.06), rgba(0,121,107,0.02)); border-radius:8px; min-height:40px; font-weight:700; color:var(--muted); }
+
+    /* history area */
+    .history-top { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+    .history-top .search { flex:1; display:flex; gap:8px; }
+    .history-top input[type="text"]{ padding:10px; }
+
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th, td { padding:8px; border:1px solid rgba(0,0,0,0.06); text-align:left; vertical-align:middle; color: var(--muted); }
+    th { background:var(--teal); color:#fff; font-weight:700; }
+    tbody tr:nth-child(even){ background: rgba(0,0,0,0.02); }
+    .actions { display:flex; gap:6px; align-items:center; }
+
+    .muted { color:var(--muted); font-size:13px; }
+
+    .summary { display:flex; gap:12px; align-items:center; margin-top:10px; font-weight:600; color:var(--muted); }
+
+    .file-input { display:none; }
+
+    .delete-btn { background:#d9534f; }
+    .row-btn { background:#3b82f6; }
+
+    @media print {
+      body { background:white; color:black; min-width:initial; }
+      .topbar, .controls, .actions, .footer, .small-btn, button { display:none !important; }
+      table { font-size:12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">
+          <img id="appLogo" src="https://raw.githubusercontent.com/Tushar-2002-coder/image-store/refs/heads/main/large.png" alt="logo">
+        </div>
+        <div>
+          <div class="title">Calculation Concentration</div>
+          <div class="subtitle">Quick chemical & conversion calculators</div>
+        </div>
+      </div>
+
+      <div class="top-right">
+        <div class="indicator">
+          <div id="onlineDot" class="dot"></div>
+          <div id="onlineText" class="muted">Online</div>
+        </div>
+
+        <div class="clock muted" id="clock">--:--:--</div>
+
+        <div class="controls">
+          <button id="themeToggle" class="small-btn">Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Inputs Card -->
+      <div class="card">
+        <label for="chemical">Select Calculation</label>
+        <select id="chemical">
+          <option value="">-- Select --</option>
+          <option value="hcl">Hydrochloric Acid (HCl)</option>
+          <option value="hypo">Sodium Hypochlorite (NaOCl)</option>
+          <option value="conv">Conversion of Storage</option>
+          <option value="tpd">Material balance of HCl (TPD)</option>
+          <option value="tpddmw">TPD of HCl (DM water basis)</option>
+        </select>
+
+        <div class="inputs-section" id="inputsCard" style="margin-top:12px;">
+          <!-- HCl inputs -->
+          <div id="hclInputs" style="display:none;">
+            <div class="row">
+              <div class="col"><label>Temperature (°C)</label><input type="number" id="temp"></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Specific Gravity</label><input type="number" step="0.001" id="sghcl"></div>
+            </div>
+            <div class="row">
+              <div class="col"><label>Thiosulfate (ml)</label><input type="number" id="ml"></div>
+            </div>
+
+            <!-- NEW: HCl TPD selector -->
+            <div class="row">
+              <div class="col">
+                <label>Select Plant Capacity (TPD)</label>
+                <select id="hclTPD">
+                  <option value="">-- Select TPD --</option>
+                  <option value="15">15 TPD</option>
+                  <option value="25">25 TPD</option>
+                  <option value="35">35 TPD</option>
+                  <option value="60">60 TPD</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hypo -->
+          <div id="hypoInputs" style="display:none;">
+            <div class="row"><div class="col"><label>0.1N Sodium Thiosulfate (ml)</label><input type="number" id="cl"></div></div>
+            <div class="row"><div class="col"><label>0.1N HCl (ml)</label><input type="number" id="caustic"></div></div>
+          </div>
+
+          <!-- conv -->
+          <div id="convInputs" style="display:none;">
+            <div class="row"><div class="col"><label>Tank level (%)</label><input type="number" id="tl"></div></div>
+            <div class="row"><div class="col"><label>Tank Capacity (m³)</label><input type="number" id="tc"></div></div>
+            <div class="row"><div class="col"><label>Specific Gravity</label><input type="number" step="0.001" id="sgconv"></div></div>
+          </div>
+
+          <!-- tpd -->
+          <div id="tpdInputs" style="display:none;">
+            <div class="row"><div class="col"><label>Tonnes of HCl production</label><input type="number" id="tonn"></div></div>
+            <div class="row"><div class="col"><label>Concentration Required (%)</label><input type="number" id="conc"></div></div>
+          </div>
+
+          <!-- tpddmw -->
+          <div id="tpddmwInputs" style="display:none;">
+            <div class="row"><div class="col"><label>Flowrate of DM water (m³/hr)</label><input type="number" id="flowrate"></div></div>
+            <div class="row"><div class="col"><label>Concentration Required (%)</label><input type="number" id="hclconc"></div></div>
+          </div>
+
+          <button class="calc-btn" id="calcBtn">Calculate</button>
+
+          <div id="result" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <!-- History / Export Card (bottom) -->
+      <div class="card">
+        <div style="display:flex; gap:8px; align-items:center; justify-content:space-between;">
+          <div>
+            <label>History Search & Filter</label>
+            <div class="history-top">
+              <div class="search">
+                <input type="text" id="searchInput" placeholder="Search inputs or result...">
+                <select id="filterType" style="width:160px;">
+                  <option value="">All Types</option>
+                  <option value="hcl">HCl</option>
+                  <option value="hypo">NaOCl</option>
+                  <option value="conv">Conversion</option>
+                  <option value="tpd">TPD</option>
+                  <option value="tpddmw">TPD (DMW)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align:right;">
+            <label>Export / Backup</label>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+              <button id="exportPdf" class="small-btn">PDF</button>
+              <button id="exportCsv" class="small-btn">CSV</button>
+              <button id="printBtn" class="small-btn">Print</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; max-height:420px; overflow:auto;">
+          <table id="historyTable" aria-live="polite">
+            <thead>
+              <tr>
+                <th style="width:36px"><input type="checkbox" id="selectAll"></th>
+                <th style="width:120px">Type</th>
+                <th>Inputs</th>
+                <th style="width:200px">Result</th>
+                <th style="width:150px">Time</th>
+                <th style="width:130px">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+
+        <div class="summary">
+          <div>Total: <span id="totalCount">0</span></div>
+          <div>Today: <span id="todayCount">0</span></div>
+          <div>Latest: <span id="latestEntry">—</span></div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="deleteSelectedBtn" class="small-btn">Delete Selected</button>
+          <button id="clearAllBtn" class="small-btn" style="background:#d9534f">Clear All</button>
+
+          <button id="backupJson" class="small-btn" title="Download JSON backup">Backup JSON</button>
+          <label class="small-btn" style="background:#444; cursor:pointer;">
+            Import JSON <input id="importFile" class="file-input" type="file" accept=".json">
+          </label>
+
+        </div>
+
+        <div class="footer">
+          <div class="muted">Tip: Click a row's "Share" to send result via WhatsApp or Email.</div>
+          <div class="muted">Storage: <span id="storageInfo">0 KB</span></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /*********************
+     * Initialization
+     *********************/
+    const HISTORY_KEY = "calcHistory_v1";
+    const DRAFTS_KEY = "calcDrafts_v1";
+    let history = [];
+    let drafts = {}; // drafts per calculation type
+
+    // DOM elements
+    const chemicalEl = document.getElementById("chemical");
+    const calcBtn = document.getElementById("calcBtn");
+    const resultEl = document.getElementById("result");
+    const historyBody = document.getElementById("historyBody");
+    const totalCountEl = document.getElementById("totalCount");
+    const todayCountEl = document.getElementById("todayCount");
+    const latestEntryEl = document.getElementById("latestEntry");
+    const searchInput = document.getElementById("searchInput");
+    const filterType = document.getElementById("filterType");
+    const selectAllCb = document.getElementById("selectAll");
+    const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
+    const clearAllBtn = document.getElementById("clearAllBtn");
+    const exportPdfBtn = document.getElementById("exportPdf");
+    const exportCsvBtn = document.getElementById("exportCsv");
+    const printBtn = document.getElementById("printBtn");
+    const backupJsonBtn = document.getElementById("backupJson");
+    const importFileInput = document.getElementById("importFile");
+    const themeToggle = document.getElementById("themeToggle");
+    const onlineDot = document.getElementById("onlineDot");
+    const onlineText = document.getElementById("onlineText");
+    const clockEl = document.getElementById("clock");
+    const storageInfoEl = document.getElementById("storageInfo");
+    const logoImg = document.getElementById("appLogo");
+
+    // input fields map (include new hclTPD)
+    const inputsMap = {
+      hcl: ["temp","sghcl","ml","hclTPD"],
+      hypo: ["cl","caustic"],
+      conv: ["tl","tc","sgconv"],
+      tpd: ["tonn","conc"],
+      tpddmw: ["flowrate","hclconc"]
+    };
+
+    // load from localStorage
+    function loadAll() {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      const d = localStorage.getItem(DRAFTS_KEY);
+      history = raw ? JSON.parse(raw) : [];
+      drafts = d ? JSON.parse(d) : {};
+    }
+
+    function saveAll() {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+      updateStorageInfo();
+    }
+
+    function updateStorageInfo(){
+      try {
+        const usage = new Blob([localStorage.getItem(HISTORY_KEY) || "" , localStorage.getItem(DRAFTS_KEY) || "" ]).size;
+        storageInfoEl.innerText = Math.round(usage/1024) + " KB";
+      } catch(e){ storageInfoEl.innerText = "—"; }
+    }
+
+    /*********************
+     * UI helpers
+     *********************/
+    function showInputsFor(type){
+      // hide all
+      Object.keys(inputsMap).forEach(k=>{
+        const elId = (k==="hcl"? "hclInputs": k+"Inputs");
+        const el = document.getElementById(elId);
+        if(el) el.style.display = (k===type) ? "block" : "none";
+      });
+
+      // load draft if exists
+      if(type && drafts[type]){
+        (inputsMap[type]||[]).forEach(id=>{
+          const el = document.getElementById(id);
+          if(el) el.value = drafts[type][id] ?? "";
+        });
+      } else {
+        // clear inputs
+        (inputsMap[type]||[]).forEach(id=>{
+          const el = document.getElementById(id);
+          if(el) el.value = "";
+        });
+      }
+      resultEl.innerText = "";
+    }
+
+    chemicalEl.addEventListener("change", ()=>{
+      showInputsFor(chemicalEl.value);
+      saveDrafts(); // save current inputs before switching
+    });
+
+    // autosave drafts when input changes
+    Object.values(inputsMap).flat().forEach(id=>{
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.addEventListener("input", ()=>{ saveDrafts(); });
+    });
+
+    function saveDrafts(){
+      const type = chemicalEl.value;
+      if(!type) return;
+      drafts[type] = drafts[type] || {};
+      (inputsMap[type]||[]).forEach(id=>{
+        const el = document.getElementById(id);
+        drafts[type][id] = el ? el.value : "";
+      });
+      saveAll();
+    }
+
+    /*********************
+     * Calculation logic (with HCl TPD included)
+     *********************/
+    function calcNow(){
+      const type = chemicalEl.value;
+      if(!type){
+        resultEl.innerText = "⚠️ Please select a calculation type.";
+        return;
+      }
+
+      // read inputs
+      const read = id=>{
+        const el = document.getElementById(id);
+        if(!el) return NaN;
+        const v = el.value;
+        return v === "" ? NaN : parseFloat(v);
+      };
+
+      let resText = "";
+      let inputsText = "";
+
+      if(type === "hcl"){
+        const T = read("temp"), SG = read("sghcl"), ML = read("ml");
+        const TPD = document.getElementById("hclTPD")?.value || "";
+        inputsText = `Temp=${T}, SG=${SG}, ml=${ML}${TPD?(", TPD="+TPD):""}`;
+        if(isNaN(T)||isNaN(SG)||isNaN(ML)) resText = "⚠️ Invalid inputs";
+        else {
+          const conc = (((T-20)*0.00065 + SG) -1) * 200;
+          const free_cl = ML * 7;
+          resText = `HCl Conc = ${conc.toFixed(2)}% | Free Cl = ${free_cl.toFixed(2)} ppm${TPD?(" | Plant: "+TPD+" TPD"):""}`;
+        }
+      } else if(type === "hypo"){
+        const cl = read("cl"), caustic = read("caustic");
+        inputsText = `Cl(vol)=${cl}, HCl(vol)=${caustic}`;
+        if(isNaN(cl)||isNaN(caustic)) resText = "⚠️ Invalid inputs";
+        else resText = `Cl = ${(cl*3.55).toFixed(2)} gpl | Caustic = ${(caustic*4).toFixed(2)} gpl`;
+      } else if(type === "conv"){
+        const TL = read("tl"), TC = read("tc"), SG = read("sgconv");
+        inputsText = `TL=${TL}%, TC=${TC}m³, SG=${SG}`;
+        if(isNaN(TL)||isNaN(TC)||isNaN(SG)) resText = "⚠️ Invalid inputs";
+        else resText = `MT = ${((TL*SG*TC)/100).toFixed(2)} MT`;
+      } else if(type === "tpd"){
+        const T = read("tonn"), C = read("conc");
+        inputsText = `T=${T} ton, C=${C}%`;
+        if(isNaN(T)||isNaN(C)) resText = "⚠️ Invalid inputs";
+        else {
+          const Tcl = ((T * (C/100) / 72.92) * 70.906);
+          const Th = ((T * (C/100) / 72.92) * 2.01);
+          resText = `Cl = ${Tcl.toFixed(2)} T | H2 = ${Th.toFixed(2)} T`;
+        }
+      } else if(type === "tpddmw"){
+        const F = read("flowrate"), C = read("hclconc");
+        inputsText = `Flow=${F} m³/hr, C=${C}%`;
+        if(isNaN(F)||isNaN(C)) resText = "⚠️ Invalid inputs";
+        else {
+          const M = ((F*24*C)/(100-C));
+          resText = `HCl = ${M.toFixed(2)} MT/day`;
+        }
+      } else {
+        resText = "⚠️ Unknown calculation";
+      }
+
+      resultEl.innerText = resText;
+      if(!resText.startsWith("⚠️")){
+        const entry = {
+          id: Date.now() + "-" + Math.random().toString(36).slice(2,8),
+          type,
+          inputs: inputsText,
+          result: resText,
+          time: new Date().toISOString() // store ISO for robust date handling
+        };
+        history.unshift(entry); // newest first
+        saveAll();
+        renderHistory();
+        // clear draft of this type (if you want to keep, comment out)
+        drafts[type] = drafts[type] || {};
+        (inputsMap[type]||[]).forEach(id=>{
+          const el = document.getElementById(id);
+          if(el) el.value = "";
+          drafts[type][id] = "";
+        });
+        saveAll();
+      }
+    }
+
+    calcBtn.addEventListener("click", ()=>{
+      saveDrafts(); // persist current draft before calc
+      calcNow();
+    });
+
+    /*********************
+     * History rendering
+     *********************/
+    function renderHistory(){
+      historyBody.innerHTML = "";
+      const q = (searchInput.value || "").trim().toLowerCase();
+      const filter = filterType.value;
+
+      const filtered = history.filter((h)=>{
+        if(filter && h.type !== filter) return false;
+        if(!q) return true;
+        return (h.inputs + " " + h.result + " " + h.type + " " + h.time).toLowerCase().includes(q);
+      });
+
+      filtered.forEach((h, idx) => {
+        const tr = document.createElement("tr");
+        const chkTd = document.createElement("td");
+        chkTd.innerHTML = `<input type="checkbox" class="row-chk" data-id="${h.id}">`;
+        tr.appendChild(chkTd);
+
+        const typeTd = document.createElement("td");
+        typeTd.innerText = typeLabel(h.type);
+        tr.appendChild(typeTd);
+
+        const inputsTd = document.createElement("td");
+        inputsTd.innerText = h.inputs;
+        tr.appendChild(inputsTd);
+
+        const resultTd = document.createElement("td");
+        resultTd.innerText = h.result;
+        tr.appendChild(resultTd);
+
+        const timeTd = document.createElement("td");
+        // friendly time display
+        const t = new Date(h.time);
+        timeTd.innerText = isNaN(t.getTime()) ? h.time : t.toLocaleString();
+        tr.appendChild(timeTd);
+
+        const actionsTd = document.createElement("td");
+        actionsTd.className = "actions";
+
+        const shareBtn = document.createElement("button");
+        shareBtn.className = "row-btn";
+        shareBtn.innerText = "Share";
+        shareBtn.addEventListener("click", ()=> shareEntry(h));
+        actionsTd.appendChild(shareBtn);
+
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "row-btn";
+        copyBtn.innerText = "Copy";
+        copyBtn.addEventListener("click", ()=> {
+          navigator.clipboard?.writeText(`${typeLabel(h.type)} | ${h.inputs} | ${h.result}`);
+          const old = copyBtn.innerText; copyBtn.innerText = "Copied";
+          setTimeout(()=> copyBtn.innerText = old, 900);
+        });
+        actionsTd.appendChild(copyBtn);
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "delete-btn";
+        delBtn.innerText = "Delete";
+        delBtn.addEventListener("click", ()=> {
+          if(!confirm("Delete this entry?")) return;
+          history = history.filter(x=> x.id !== h.id);
+          saveAll(); renderHistory();
+        });
+        actionsTd.appendChild(delBtn);
+
+        tr.appendChild(actionsTd);
+        historyBody.appendChild(tr);
+      });
+
+      updateSummary();
+    }
+
+    function typeLabel(code){
+      switch(code){
+        case "hcl": return "HCl";
+        case "hypo": return "NaOCl";
+        case "conv": return "Conversion";
+        case "tpd": return "TPD";
+        case "tpddmw": return "TPD (DMW)";
+        default: return code;
+      }
+    }
+
+    /*********************
+     * Search / Filter events
+     *********************/
+    searchInput.addEventListener("input", renderHistory);
+    filterType.addEventListener("change", ()=> { selectAllCb.checked = false; renderHistory(); });
+
+    /*********************
+     * Select all / delete selected
+     *********************/
+    selectAllCb.addEventListener("change", ()=>{
+      const checked = selectAllCb.checked;
+      document.querySelectorAll(".row-chk").forEach(cb=> cb.checked = checked);
+    });
+
+    deleteSelectedBtn.addEventListener("click", ()=>{
+      const checked = Array.from(document.querySelectorAll(".row-chk:checked")).map(cb=> cb.dataset.id);
+      if(checked.length === 0){ alert("Select rows to delete"); return; }
+      if(!confirm(`Delete ${checked.length} selected entries?`)) return;
+      history = history.filter(h => !checked.includes(h.id));
+      saveAll();
+      renderHistory();
+    });
+
+    clearAllBtn.addEventListener("click", ()=>{
+      if(!confirm("Clear entire history? This cannot be undone.")) return;
+      history = [];
+      saveAll();
+      renderHistory();
+    });
+
+    /*********************
+     * Export PDF / CSV / Print
+     *********************/
+    exportPdfBtn.addEventListener("click", ()=>{
+      if(history.length===0){ alert("No data to export"); return; }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({unit:'pt', format:'a4'});
+      doc.setFontSize(14);
+      doc.text("Calculation History", 40, 40);
+      const rows = history.map(h=> [typeLabel(h.type), h.inputs, h.result, (new Date(h.time)).toLocaleString()]);
+      doc.autoTable({
+        head: [['Type','Inputs','Result','Time']],
+        body: rows,
+        startY: 60,
+        styles: { fontSize:9 }
+      });
+      doc.save("calculations.pdf");
+    });
+
+    exportCsvBtn.addEventListener("click", ()=>{
+      if(history.length===0){ alert("No data to export"); return; }
+      const rows = [["Type","Inputs","Result","Time"], ...history.map(h=> [typeLabel(h.type), h.inputs, h.result, (new Date(h.time)).toLocaleString()])];
+      const csv = rows.map(r=> r.map(c=> `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], {type:'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "calculations.csv"; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    printBtn.addEventListener("click", ()=> window.print());
+
+    /*********************
+     * Share via WhatsApp / Email
+     *********************/
+    function shareEntry(h){
+      const text = `${typeLabel(h.type)}\nInputs: ${h.inputs}\nResult: ${h.result}\nTime: ${(new Date(h.time)).toLocaleString()}`;
+      if(confirm("Share via WhatsApp? Click Cancel to use Email.")){
+        const url = "https://wa.me/?text=" + encodeURIComponent(text);
+        window.open(url, "_blank");
+      } else {
+        const subject = encodeURIComponent("Calculation Result: "+ typeLabel(h.type));
+        const body = encodeURIComponent(text);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      }
+    }
+
+    /*********************
+     * Backup / Restore JSON
+     *********************/
+    backupJsonBtn.addEventListener("click", ()=>{
+      const data = { history, drafts, exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `calcBackup_${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importFileInput.addEventListener("change", (ev)=>{
+      const file = ev.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (e)=>{
+        try{
+          const data = JSON.parse(e.target.result);
+          if(!data.history || !Array.isArray(data.history)){
+            alert("Invalid backup file.");
+            return;
+          }
+          if(!confirm("This will replace current history and drafts. Continue?")) return;
+          history = data.history;
+          drafts = data.drafts || {};
+          saveAll();
+          renderHistory();
+          alert("Imported successfully.");
+        } catch(err){ alert("Failed to import JSON: " + err.message); }
+      };
+      reader.readAsText(file);
+      ev.target.value = "";
+    });
+
+    /*********************
+     * Dark mode toggle
+     *********************/
+    function setDark(isDark){
+      if(isDark) document.body.classList.add("dark");
+      else document.body.classList.remove("dark");
+      themeToggle.innerText = isDark ? "Light" : "Dark";
+      localStorage.setItem("themeDark", isDark ? "1" : "0");
+    }
+    themeToggle.addEventListener("click", ()=> setDark(!document.body.classList.contains("dark")));
+    (function initTheme(){ const pref = localStorage.getItem("themeDark"); setDark(pref === "1"); })();
+
+    /*********************
+     * Clock & online indicator
+     *********************/
+    function updateClock(){ clockEl.innerText = new Date().toLocaleString(); setTimeout(updateClock, 1000); }
+    updateClock();
+
+    function updateOnlineStatus(){
+      const online = navigator.onLine;
+      onlineDot.classList.toggle("off", !online);
+      onlineText.innerText = online ? "Online" : "Offline";
+    }
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    updateOnlineStatus();
+
+    /*********************
+     * Summary
+     *********************/
+    function updateSummary(){
+      totalCountEl.innerText = history.length;
+      const todayISO = new Date().toLocaleDateString();
+      const todayCount = history.filter(h => (new Date(h.time)).toLocaleDateString() === todayISO).length;
+      todayCountEl.innerText = todayCount;
+      latestEntryEl.innerText = history.length ? (new Date(history[0].time)).toLocaleString() : "—";
+    }
+
+    /*********************
+     * Utils & Init
+     *********************/
+    function saveDrafts(){
+      const type = chemicalEl.value;
+      if(!type) return;
+      drafts[type] = drafts[type] || {};
+      (inputsMap[type]||[]).forEach(id=>{
+        const el = document.getElementById(id);
+        drafts[type][id] = el ? el.value : "";
+      });
+      saveAll();
+    }
+
+    // attach autosave to inputs
+    Object.values(inputsMap).flat().forEach(id=>{
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.addEventListener("input", saveDrafts);
+    });
+
+    function init(){
+      loadAll();
+      renderHistory();
+      updateStorageInfo();
+      showInputsFor(chemicalEl.value);
+    }
+
+    init();
+    window.addEventListener("beforeunload", saveAll);
+
+  </script>
+</body>
+</html>
